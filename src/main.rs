@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+mod cms;
 mod hasher;
 mod parser;
 
@@ -15,5 +16,11 @@ fn main() -> Result<(), EPPError> {
         motifs.push(mi);
     }
     dbg!(&motifs);
+    let mut cms = cms::CountMinSketch::new(1e-5, 99.99);
+    for motif in motifs.iter() {
+        cms.put(&motif);
+    }
+    let count = cms.get(&motifs[0]);
+    dbg!(count);
     Ok(())
 }

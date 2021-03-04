@@ -21,7 +21,7 @@ impl From<&str> for ParserError {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct MotifInfo {
-    raw: String,
+    pub raw: String,
     u_prefix: String,
     u: u32,
     v_prefix: String,
