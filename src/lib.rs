@@ -3,5 +3,4 @@
 //! BLANT and determines the predictive value of orbit pairs insofar as predicting edges.
 
 pub mod cms;
-pub mod hash;
 pub mod parser;

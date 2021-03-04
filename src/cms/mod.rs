@@ -1,7 +1,7 @@
 //! A specialized implementation of the
 //! [Count-Min Sketch data structure](https://en.wikipedia.org/wiki/Count%E2%80%93min_sketch).
 
-use crate::hash;
+pub mod hash;
 
 /// A specialized implementation of the
 /// [Count-Min Sketch data structure](https://en.wikipedia.org/wiki/Count%E2%80%93min_sketch).
@@ -25,7 +25,7 @@ impl CountMinSketch {
         }
     }
 
-    /// Retrieves a value from the CMS. Expectes a condensed format of the input to support
+    /// Retrieves a value from the CMS. Expects a condensed format of the input to support
     /// hashing. This condensed value is the `raw` field in
     /// [`parser::MotifInfo`](../parser/struct.MotifInfo.html)
     pub fn get(&self, raw: &str) -> i32 {
@@ -47,7 +47,6 @@ impl CountMinSketch {
         }
     }
 
-
     fn cms_hash(&self, raw: &str, idx: i32) -> i32 {
         match idx {
             0 => hash::string_fold_hash(raw),
@@ -57,5 +56,29 @@ impl CountMinSketch {
             4 => hash::dek_hash(raw),
             _ => 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn put_get() {
+        let s = "cool_value";
+        let c = "other_value";
+        let k = "not_value";
+
+        let mut cms = CountMinSketch::new(1e-5, 99.99);
+
+        cms.put(s);
+        cms.put(s);
+        cms.put(s);
+        cms.put(c);
+        cms.put(c);
+
+        assert_eq!(cms.get(s), 3);
+        assert_eq!(cms.get(c), 2);
+        assert_eq!(cms.get(k), 0);
     }
 }

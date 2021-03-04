@@ -82,3 +82,17 @@ pub fn dek_hash(s: &str) -> i32 {
 
     (hash as i32 % PRIME).abs()
 }
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn string_fold() {
+        let raw1 = "ENSG00000164164:ENSG00000175376:11:12";
+        let raw2 = "ENSG00000006194:ENSG00000174851:6:6";
+        let hash1 = string_fold_hash(raw1);
+        let hash2 = string_fold_hash(raw2);
+        assert_ne!(hash1, hash2);
+    }
+}
