@@ -1,15 +1,42 @@
+//! A parser that takes output files from [BLANT](https://github.com/waynebhayes/BLANT) and
+//! extracts information about Motifs.
+//!
+//! # Input Format
+//! TODO: Update this to be clearer and more general.
+//! The leading P is just a flag, meaning "Prediction mode"; next we have
+//! "ENSG00000114125:ENSG00000137266", which is the pair of nodes under consideration for
+//! prediction, which I always call u and v; then there's a 0 or 1 (called e), indicating whether
+//! these two nodes have an edge (1) or not (0) in the input file ( HI-union.el ); next we have
+//! "11:11", which is the orbit pair o:p but without the leading k, which is on the command
+//! line--in this case, k=4.
+//!
+//! The next two columns require explanation and a diagram:
+//! Above is an L3; nodes u and v are the endpoints, occupying orbit pair o:p=11:11, and nodes
+//! x and y are the "interior" nodes occupying orbit pair q:r=12:12. Orbit IDs are labeled in red.
+//! The u and v nodes (at their orbit positions 11:11) are explained above, where u is
+//! ENSG00000114125  and v is ENSG00000137266.
+//!
+//! The next column is q:r 11:12, and the last column is "ENSG00000114125:ENSG00000135916".
+//! These two columns represent the edge (u,x) connecting orbits 11 and 12 in the diagram
+//! (and from the diagram we see that x must be node ENSG00000135916).
+
 use itertools::Itertools;
 use std::io::BufRead;
 use std::result::Result;
 use thiserror::Error;
 
+/// Consolidates the various errors that can occur while parsing into one enum so as to unify
+/// into one variant high up this projects "error tree".
 #[derive(Error, Debug)]
 pub enum ParserError {
+    /// Error in an underlying IO syscall.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+    /// Error in interpreting text that should be a number as a number.
     #[error(transparent)]
     ParseIntErr(#[from] std::num::ParseIntError),
-    #[error("Invalid format around `{0}`")]
+    /// The formatting of the input file is to be wrong.
+    #[error("Invalid format: `{0}`")]
     InvalidFormat(String),
 }
 
@@ -19,15 +46,23 @@ impl From<&str> for ParserError {
     }
 }
 
+/// A parsed Motif from BLANT.
 #[derive(Debug, Eq, PartialEq)]
 pub struct MotifInfo {
+    /// A condensed representation for hashing.
     pub raw: String,
-    u_prefix: String,
-    u: u32,
-    v_prefix: String,
-    v: u32,
-    o: u32,
-    p: u32,
+    /// The alphanumeric prefix denoting the dataset origin of u.
+    pub u_prefix: String,
+    /// The node number of u.
+    pub u: u32,
+    /// The alphanumeric prefix denoting the dataset origin of u.
+    pub v_prefix: String,
+    /// The node number of v.
+    pub v: u32,
+    /// The orbit number of o.
+    pub o: u32,
+    /// The orbit number of p.
+    pub p: u32,
 }
 
 fn parse_node(tok: &str) -> Result<(String, u32), ParserError> {
@@ -38,6 +73,15 @@ fn parse_node(tok: &str) -> Result<(String, u32), ParserError> {
     }
 }
 
+/// Given any buffered reader, this function will extract one line of text and attempt to parse
+/// it expecting the following format (explained in more detail in module docs):
+/// `P u:v e o:p q:r x:y`
+/// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
+/// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
+///
+/// # Arguments
+/// * `input` - any type that implements
+/// [BufRead](https://doc.rust-lang.org/std/io/trait.BufRead.html) that can output the above format.
 pub fn parse_motif<R: BufRead>(input: &mut R) -> Result<Option<MotifInfo>, ParserError> {
     // Line buffer
     let mut line = String::new();

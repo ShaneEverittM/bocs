@@ -1,7 +1,12 @@
+//! A set of hash functions that take compresses u:v:o:p representations. These hash algorithms
+//! were found to be effective on this representation.
+
 use std::num::Wrapping;
 
 const PRIME: i32 = 269891;
 
+/// Performs string fold hashing on the given key. String fold hashing operates on 4 byte chunks
+/// of the input string, folding them into sum then modulating the value into a reasonable range.
 pub fn string_fold_hash(key: &str) -> i32 {
     let mut sum: i64 = 0;
     let mut mul: i64 = 1;
@@ -13,6 +18,8 @@ pub fn string_fold_hash(key: &str) -> i32 {
     (sum.abs() % PRIME as i64) as i32
 }
 
+/// Performs PJW hash on the given key. PJW hash basically shifts the previous hash adding the
+/// current byte then moves the high bits.
 pub fn pjw_hash(s: &str) -> i32 {
     let bits: u32 = (std::mem::size_of::<u32>() * 8) as u32;
     let three_quarters: u32 = (bits * 3) / 4;
@@ -32,11 +39,13 @@ pub fn pjw_hash(s: &str) -> i32 {
     (hash as i32 & PRIME).abs()
 }
 
+/// Performs ELF hash on the given key. ELF hash is very similar to [PJW hash](fn.pjw_hash.html) and
+/// is used in unix ELF file generation.
 pub fn elf_hash(s: &str) -> i32 {
     let mut hash: u32 = 0;
     let mut x: u32;
 
-    for c in s.chars() {
+    for c in s.bytes() {
         hash = (hash << 4) + c as u32;
         x = hash & 0xF0000000;
         if x != 0 {
@@ -48,6 +57,9 @@ pub fn elf_hash(s: &str) -> i32 {
     (hash as i32 % PRIME).abs()
 }
 
+/// Performs SDBM hash on the given key. This hash function seems to have a good over-all
+/// distribution for many different data sets. It seems to work well in situations where there is
+/// a high variance in the MSBs of the elements in a data set.
 pub fn sdbm_hash(s: &str) -> i32 {
     let mut hash = Wrapping(0i32);
 
@@ -59,6 +71,8 @@ pub fn sdbm_hash(s: &str) -> i32 {
     (hash.0 % PRIME).abs()
 }
 
+/// Performs DEK hash on the given key. This is the hash algorithm proposed by Donald Knuth in
+/// The Art of Computer Programming Volume 3.
 pub fn dek_hash(s: &str) -> i32 {
     let mut hash: u32 = s.len() as u32;
 
