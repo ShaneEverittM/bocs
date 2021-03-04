@@ -104,8 +104,6 @@ pub fn parse_motif<R: BufRead>(input: &mut R) -> Result<Option<MotifInfo>, Parse
         return Ok(None);
     };
 
-    let x = "asdf".parse::<u32>();
-
     // Split on whitespace, skip P
     let mut tokens = line.split_whitespace().skip(1);
 
