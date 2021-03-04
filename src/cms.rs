@@ -2,8 +2,6 @@ use crate::hasher;
 use crate::parser;
 
 pub struct CountMinSketch {
-    error_rate: f64,
-    confidence: f64,
     depth: usize,
     width: usize,
     table: Vec<Vec<i32>>,
@@ -11,11 +9,9 @@ pub struct CountMinSketch {
 
 impl CountMinSketch {
     pub fn new(error_rate: f64, confidence: f64) -> Self {
-        let depth: usize = f64::ceil(f64::ln(1.0 / (100.0 - confidence))) as usize;
+        let depth = ((1.0 / (100.0 - confidence)).ln()).ceil() as usize;
         let width: usize = f64::ceil(std::f64::consts::E / error_rate) as usize;
         Self {
-            error_rate,
-            confidence,
             depth,
             width,
             table: vec![vec![0; width]; depth],
