@@ -16,16 +16,17 @@ fn main() -> Result<(), parser::ParseError> {
         cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
     }
 
+    let k = 4;
+
     for (uv, c) in uvs.iter() {
+        print!("{} {}", uv, *c as u32);
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
-            match cms.get(&raw) {
-                0 => (),
-                count => {
-                    println!("{}: {}, connected: {}", raw, count, c);
-                }
+            if let Some(count) = cms.get(&raw) {
+                print!("    {}:{} {}", k, op, count);
             }
         }
+        println!()
     }
 
     Ok(())

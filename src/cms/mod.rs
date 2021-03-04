@@ -28,14 +28,19 @@ impl CountMinSketch {
     /// Retrieves a value from the CMS. Expects a condensed format of the input to support
     /// hashing. This condensed value is the `raw` field in
     /// [`parser::MotifInfo`](../parser/struct.MotifInfo.html)
-    pub fn get(&self, raw: &str) -> i32 {
+    pub fn get(&self, raw: &str) -> Option<i32> {
         let mut hashed_freq: i32 = i32::max_value();
         let mut hash_value: i32;
         for i in 0..self.depth {
             hash_value = self.cms_hash(raw, i as i32);
             hashed_freq = hashed_freq.min(self.table[i][(hash_value % self.width as i32) as usize])
         }
-        hashed_freq
+        
+        if hashed_freq > 0 {
+            Some(hashed_freq)
+        } else {
+            None
+        }
     }
 
     /// Inserts a value into the CMS.
