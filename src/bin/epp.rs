@@ -1,26 +1,32 @@
 use epp_rust::{cms, parser};
+use std::collections::{HashMap, HashSet};
 
 fn main() -> Result<(), parser::ParseError> {
-    let mut raws = Vec::new();
-
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
 
-    while let Some(raw) = parser::parse_raw(&mut stdin_handle)? {
-        raws.push(raw);
-    }
-
-    dbg!(&raws);
+    let mut uvs = HashMap::new();
+    let mut ops = HashSet::new();
 
     let mut cms = cms::CountMinSketch::new(1e-5, 99.99);
 
-    for raw in raws.iter() {
-        cms.put(&raw);
+    while let Some(cms_info) = parser::parse_cms(&mut stdin_handle)? {
+        uvs.insert(cms_info.uv.clone(), cms_info.c);
+        ops.insert(cms_info.op.clone());
+        cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
     }
 
-    let count = cms.get(&raws[0]);
-
-    dbg!(count);
+    for (uv, c) in uvs.iter() {
+        for op in ops.iter() {
+            let raw = format!("{}:{}", uv, op);
+            match cms.get(&raw) {
+                0 => (),
+                count => {
+                    println!("{}: {}, connected: {}", raw, count, c);
+                }
+            }
+        }
+    }
 
     Ok(())
 }

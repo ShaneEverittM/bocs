@@ -26,6 +26,7 @@ use itertools::Itertools;
 use std::io::BufRead;
 use std::result::Result;
 use thiserror::Error;
+use crate::parser::ParseError::InvalidFormat;
 
 /// Consolidates the various errors that can occur while parsing into one enum so as to unify
 /// into one variant high up this projects "error tree".
@@ -37,6 +38,9 @@ pub enum ParseError {
     /// Error in interpreting text that should be a number as a number.
     #[error(transparent)]
     ParseIntErr(#[from] std::num::ParseIntError),
+    // C was not a bool
+    #[error(transparent)]
+    ParseBoolErrors(#[from] std::str::ParseBoolError),
     /// The formatting of the input file is to be wrong.
     #[error("Invalid format: `{0}`")]
     InvalidFormat(String),
@@ -67,6 +71,15 @@ pub struct MotifInfo {
     pub p: u32,
 }
 
+/// The information about a motif edge BLANT condensed into a useful format for the CMS.
+#[derive(Debug, Eq, PartialEq)]
+pub struct CMSInfo {
+    pub uv: String,
+    pub op: String,
+    /// Whether or not u:v is connected?
+    pub c: bool,
+}
+
 
 /// Given any buffered reader, this function will extract one line of text and attempt to parse
 /// it expecting the following format (explained in more detail in module docs):
@@ -90,6 +103,8 @@ pub fn parse_motif<R: BufRead>(input: &mut R) -> Result<Option<MotifInfo>, Parse
     if let 0 = input.read_line(&mut line)? {
         return Ok(None);
     };
+
+    let x = "asdf".parse::<u32>();
 
     // Split on whitespace, skip P
     let mut tokens = line.split_whitespace().skip(1);
@@ -179,7 +194,7 @@ pub fn parse_raw<R: BufRead>(input: &mut R) -> Result<Option<String>, ParseError
 /// on EOF returns `Ok(None)`
 ///
 /// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
-pub fn parse_split<R: BufRead>(input: &mut R) -> Result<Option<(String, String)>, ParseError> {
+pub fn parse_cms<R: BufRead>(input: &mut R) -> Result<Option<CMSInfo>, ParseError> {
     // Line buffer
     let mut line = String::new();
 
@@ -194,11 +209,19 @@ pub fn parse_split<R: BufRead>(input: &mut R) -> Result<Option<(String, String)>
     // Get node pair
     let uv = tokens.next().ok_or("node pair")?;
 
-    // Skip c, get orbit pair
-    let op = tokens.nth(1).ok_or("orbit pair")?;
+    // Get connected bit
+    let c = tokens.next().ok_or("connected")?;
+    let c_bool = match c {
+        "0" => false,
+        "1" => true,
+        _ => return Err(InvalidFormat("C must be 0 or 1".into()))
+    };
+
+    // Get orbit pair
+    let op = tokens.next().ok_or("orbit pair")?;
 
     // Concat into raw hashable representation
-    Ok(Some((uv.to_owned(), op.to_owned())))
+    Ok(Some(CMSInfo { uv: uv.to_owned(), op: op.to_owned(), c: c_bool }))
 }
 
 
@@ -294,10 +317,26 @@ mod tests {
     #[test]
     fn parse_split_test() -> Result<(), ParseError> {
         let expected = vec![
-            ("ENSG00000164164:ENSG00000175376".to_owned(), "11:12".to_owned()),
-            ("ENSG00000006194:ENSG00000174851".to_owned(), "6:6".to_owned()),
-            ("ENSG00000205302:ENSG00000175895".to_owned(), "11:12".to_owned()),
-            ("ENSG00000147041:ENSG00000205302".to_owned(), "6:6".to_owned()),
+            CMSInfo {
+                uv: "ENSG00000164164:ENSG00000175376".to_owned(),
+                op: "11:12".to_owned(),
+                c: false,
+            },
+            CMSInfo {
+                uv: "ENSG00000006194:ENSG00000174851".to_owned(),
+                op: "6:6".to_owned(),
+                c: false,
+            },
+            CMSInfo {
+                uv: "ENSG00000205302:ENSG00000175895".to_owned(),
+                op: "11:12".to_owned(),
+                c: false,
+            },
+            CMSInfo {
+                uv: "ENSG00000147041:ENSG00000205302".to_owned(),
+                op: "6:6".to_owned(),
+                c: false,
+            },
         ];
 
         let mut actual = Vec::new();
@@ -305,7 +344,7 @@ mod tests {
             std::fs::File::open("tests/4_line_motif_test.txt")?
         );
 
-        while let Some(raw) = parse_split(&mut file_br)? {
+        while let Some(raw) = parse_cms(&mut file_br)? {
             actual.push(raw);
         }
 
