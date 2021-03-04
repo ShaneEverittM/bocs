@@ -1,3 +1,4 @@
+use std::num::Wrapping;
 
 const PRIME: i32 = 269891;
 
@@ -13,32 +14,21 @@ pub fn string_fold_hash(key: &str) -> i32 {
 }
 
 pub fn pjw_hash(s: &str) -> i32 {
-    // const unsigned int Bits = (unsigned int) (sizeof(unsigned int) * 8);
     let bits: u32 = (std::mem::size_of::<u32>() * 8) as u32;
-    // const unsigned int ThreeQuarters = (unsigned int) ((Bits * 3) / 4);
     let three_quarters: u32 = (bits * 3) / 4;
-    // const unsigned int OneEighth = (unsigned int) (Bits / 8);
     let one_eighth: u32 = bits / 8;
-    // const unsigned int HighBits = (unsigned int) (0xFFFFFFFF) << (Bits - OneEighth);
     let high_bits: u32 = 0xffffffff << (bits - one_eighth);
 
-    // unsigned int hash{};
     let mut hash: u32 = 0;
-    // unsigned int test{};
     let mut test: u32;
 
-    // for (int i = 0; i < s.length(); i++) {
     for c in s.chars() {
-        // hash = (hash << OneEighth) + s[i];
         hash = (hash << one_eighth) + c as u32;
-        // if ((test = hash & HighBits) != 0) {
         test = hash & high_bits;
         if test != 0 {
-            //  hash = ((hash ^ (test >> ThreeQuarters)) & (~HighBits));
             hash = (hash ^ (test >> three_quarters)) & !high_bits;
         }
     }
-    // return abs((int) (hash % prime));
     (hash as i32 & PRIME).abs()
 }
 
@@ -59,13 +49,14 @@ pub fn elf_hash(s: &str) -> i32 {
 }
 
 pub fn sdbm_hash(s: &str) -> i32 {
-    let mut hash: u32 = 0;
+    let mut hash = Wrapping(0i32);
 
     for c in s.chars() {
-        hash = c as u32 + (hash << 6) + (hash << 16) - hash;
+        let c_num = Wrapping(c as i32);
+        hash = c_num + (hash << 6) + (hash << 16) - hash;
     }
 
-    (hash as i32 % PRIME).abs()
+    (hash.0 % PRIME).abs()
 }
 
 pub fn dek_hash(s: &str) -> i32 {
