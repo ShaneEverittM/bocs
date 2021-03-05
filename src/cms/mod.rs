@@ -16,7 +16,7 @@ impl CountMinSketch {
     /// assert that any count returned from the CMS will be at most `error_rate` over the actual
     /// count `confidence` percent of the time.
     pub fn new(error_rate: f64, confidence: f64) -> Self {
-        let depth = ((1.0 / (100.0 - confidence)).ln()).ceil() as usize;
+        let depth = f64::ceil(f64::ln(1.0 / (100.0 - confidence))) as usize;
         let width = f64::ceil(std::f64::consts::E / error_rate) as usize;
         Self {
             depth,
