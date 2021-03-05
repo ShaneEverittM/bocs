@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 thiserror = "1.0.24"
 itertools = "0.10.0"
+clap = "2.33.3"

@@ -1,7 +1,18 @@
 use epp_rust::{cms, parser};
 use std::collections::{HashMap, HashSet};
+use clap::App;
 
 fn main() -> Result<(), parser::ParseError> {
+    let matches = App::new("EPP")
+        .version("0.1")
+        .author("Shane Murphy")
+        .author("Elliott Allison")
+        .author("Maaz Adeeb")
+        .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
+        .get_matches();
+
+    let k = matches.value_of("k").expect("Must supply k value").parse::<u32>()?;
+
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
 
@@ -15,8 +26,6 @@ fn main() -> Result<(), parser::ParseError> {
         ops.insert(cms_info.op.clone());
         cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
     }
-
-    let k = 4;
 
     for (uv, c) in uvs.iter() {
         print!("{} {}", uv, *c as u32);
