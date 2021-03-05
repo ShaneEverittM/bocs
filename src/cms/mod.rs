@@ -59,7 +59,9 @@ impl CountMinSketch {
             2 => hash::rs_hash(raw),
             3 => hash::js_hash(raw),
             4 => hash::bkdr_hash(raw),
-            _ => 0,
+            5 => hash::elf_hash(raw),
+            6 => hash::sdbm_hash(raw),
+            _ => unimplemented!(),
         }
     }
 }
