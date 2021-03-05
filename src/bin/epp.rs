@@ -1,6 +1,6 @@
+use clap::App;
 use epp_rust::{cms, parser};
 use std::collections::{HashMap, HashSet};
-use clap::App;
 
 fn main() -> Result<(), parser::ParseError> {
     let matches = App::new("EPP")
@@ -9,7 +9,10 @@ fn main() -> Result<(), parser::ParseError> {
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .get_matches();
 
-    let k = matches.value_of("k").expect("Must supply k value").parse::<u32>()?;
+    let k = matches
+        .value_of("k")
+        .expect("Must supply k value")
+        .parse::<u32>()?;
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
@@ -19,7 +22,9 @@ fn main() -> Result<(), parser::ParseError> {
 
     let mut cms = cms::CountMinSketch::new(1e-5, 99.99);
 
-    while let Some(cms_info) = parser::parse_cms(&mut stdin_handle)? {
+    let mut parser = parser::Parser::new();
+
+    while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
         uvs.insert(cms_info.uv.clone(), cms_info.c);
         ops.insert(cms_info.op.clone());
         cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));

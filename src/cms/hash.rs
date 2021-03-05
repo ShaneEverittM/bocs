@@ -3,50 +3,84 @@
 
 use std::num::Wrapping;
 
-const PRIME: i32 = 269891;
+const PRIME: usize = 269891;
+
+pub fn js_hash(key: &str) -> usize {
+    let mut hash: usize = 378551;
+
+    for c in key.chars() {
+        hash ^= (hash << 5).wrapping_add(c as usize).wrapping_add(hash >> 2);
+    }
+
+    hash % PRIME
+}
+
+pub fn rs_hash(key: &str) -> usize {
+    let b: usize = 378551;
+    let mut a: usize = 63689;
+    let mut hash: usize = 0;
+
+    for c in key.chars() {
+        hash = hash.wrapping_mul(a).wrapping_add(c as usize);
+        a = a.wrapping_mul(b);
+    }
+
+    hash % PRIME
+}
+
+pub fn bkdr_hash(key: &str) -> usize {
+    let seed: usize = 131;
+    let mut hash: usize = 0;
+
+    for c in key.chars() {
+        hash = hash.wrapping_mul(seed).wrapping_add(c as usize);
+    }
+
+    hash % PRIME
+}
 
 /// Performs string fold hashing on the given key. String fold hashing operates on 4 byte chunks
 /// of the input string, folding them into sum then modulating the value into a reasonable range.
-pub fn string_fold_hash(key: &str) -> i32 {
-    let mut sum: i64 = 0;
-    let mut mul: i64 = 1;
+pub fn string_fold_hash(key: &str) -> usize {
+    let mut sum = 0;
+    let mut mul = 1;
 
     for (i, c) in key.chars().enumerate() {
         mul = if i % 4 == 0 { 1 } else { mul * 256 };
-        sum += (c as i64 * mul) as i64;
+        sum += c as usize * mul;
     }
-    (sum.abs() % PRIME as i64) as i32
+    sum % PRIME
 }
 
 /// Performs PJW hash on the given key. PJW hash basically shifts the previous hash adding the
 /// current byte then moves the high bits.
-pub fn pjw_hash(s: &str) -> i32 {
-    let bits: u32 = (std::mem::size_of::<u32>() * 8) as u32;
-    let three_quarters: u32 = (bits * 3) / 4;
-    let one_eighth: u32 = bits / 8;
-    let high_bits: u32 = 0xffffffff << (bits - one_eighth);
+pub fn pjw_hash(s: &str) -> usize {
+    let bits: usize = std::mem::size_of::<usize>() * 8;
+    let three_quarters = (bits * 3) / 4;
+    let one_eighth = bits / 8;
+    let high_bits = 0xffffffff << (bits - one_eighth);
 
-    let mut hash: u32 = 0;
-    let mut test: u32;
+    let mut hash = 0;
+    let mut test;
 
     for c in s.chars() {
-        hash = (hash << one_eighth) + c as u32;
+        hash = (hash << one_eighth) + c as usize;
         test = hash & high_bits;
         if test != 0 {
             hash = (hash ^ (test >> three_quarters)) & !high_bits;
         }
     }
-    (hash as i32 & PRIME).abs()
+    hash & PRIME
 }
 
 /// Performs ELF hash on the given key. ELF hash is very similar to [PJW hash](fn.pjw_hash.html) and
 /// is used in unix ELF file generation.
-pub fn elf_hash(s: &str) -> i32 {
-    let mut hash: u32 = 0;
-    let mut x: u32;
+pub fn elf_hash(s: &str) -> usize {
+    let mut hash: usize = 0;
+    let mut x: usize;
 
     for c in s.bytes() {
-        hash = (hash << 4) + c as u32;
+        hash = (hash << 4) + c as usize;
         x = hash & 0xF0000000;
         if x != 0 {
             hash ^= x >> 24;
@@ -54,37 +88,25 @@ pub fn elf_hash(s: &str) -> i32 {
         hash &= !x;
     }
 
-    (hash as i32 % PRIME).abs()
+    hash % PRIME
 }
 
 /// Performs SDBM hash on the given key. This hash function seems to have a good over-all
 /// distribution for many different data sets. It seems to work well in situations where there is
 /// a high variance in the MSBs of the elements in a data set.
-pub fn sdbm_hash(s: &str) -> i32 {
-    let mut hash = Wrapping(0i32);
+pub fn sdbm_hash(s: &str) -> usize {
+    let mut hash = Wrapping(0usize);
 
     for c in s.chars() {
-        let c_num = Wrapping(c as i32);
+        let c_num = Wrapping(c as usize);
         hash = c_num + (hash << 6) + (hash << 16) - hash;
     }
 
-    (hash.0 % PRIME).abs()
-}
-
-/// Performs DEK hash on the given key. This is the hash algorithm proposed by Donald Knuth in
-/// The Art of Computer Programming Volume 3.
-pub fn dek_hash(s: &str) -> i32 {
-    let mut hash: u32 = s.len() as u32;
-
-    for c in s.chars() {
-        hash = ((hash << 5) ^ (hash >> 27)) ^ c as u32;
-    }
-
-    (hash as i32 % PRIME).abs()
+    hash.0 % PRIME
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]

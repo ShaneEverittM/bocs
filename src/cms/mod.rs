@@ -30,10 +30,10 @@ impl CountMinSketch {
     /// [`parser::MotifInfo`](../parser/struct.MotifInfo.html)
     pub fn get(&self, raw: &str) -> Option<i32> {
         let mut hashed_freq: i32 = i32::max_value();
-        let mut hash_value: i32;
+        let mut hash_value: usize;
         for i in 0..self.depth {
             hash_value = self.cms_hash(raw, i as i32);
-            hashed_freq = hashed_freq.min(self.table[i][(hash_value % self.width as i32) as usize])
+            hashed_freq = hashed_freq.min(self.table[i][(hash_value % self.width as usize)])
         }
 
         if hashed_freq > 0 {
@@ -45,20 +45,20 @@ impl CountMinSketch {
 
     /// Inserts a value into the CMS.
     pub fn put(&mut self, raw: &str) {
-        let mut hash_value: i32;
+        let mut hash_value: usize;
         for i in 0..self.depth {
             hash_value = self.cms_hash(raw, i as i32);
-            self.table[i][(hash_value % self.width as i32) as usize] += 1;
+            self.table[i][(hash_value % self.width as usize)] += 1;
         }
     }
 
-    fn cms_hash(&self, raw: &str, idx: i32) -> i32 {
+    fn cms_hash(&self, raw: &str, idx: i32) -> usize {
         match idx {
             0 => hash::string_fold_hash(raw),
             1 => hash::pjw_hash(raw),
-            2 => hash::elf_hash(raw),
-            3 => hash::sdbm_hash(raw),
-            4 => hash::dek_hash(raw),
+            2 => hash::rs_hash(raw),
+            3 => hash::js_hash(raw),
+            4 => hash::bkdr_hash(raw),
             _ => 0,
         }
     }
@@ -84,6 +84,6 @@ mod tests {
 
         assert_eq!(cms.get(s).unwrap(), 3);
         assert_eq!(cms.get(c).unwrap(), 2);
-        assert_eq!(cms.get(k).unwrap(), 0);
+        assert_eq!(cms.get(k), None);
     }
 }
