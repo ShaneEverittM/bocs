@@ -1,8 +1,11 @@
 use clap::App;
-use epp_rust::{cms, parser};
+use epp_rust::{
+    cms::CountMinSketch,
+    parser::{ParseError, Parser},
+};
 use std::collections::{HashMap, HashSet};
 
-fn main() -> Result<(), parser::ParseError> {
+fn main() -> Result<(), ParseError> {
     let matches = App::new("EPP")
         .version("0.1")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
@@ -12,7 +15,7 @@ fn main() -> Result<(), parser::ParseError> {
     let k = matches
         .value_of("k")
         .expect("Must supply k value")
-        .parse::<u32>()?;
+        .parse::<usize>()?;
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
@@ -20,9 +23,9 @@ fn main() -> Result<(), parser::ParseError> {
     let mut uvs = HashMap::new();
     let mut ops = HashSet::new();
 
-    let mut cms = cms::CountMinSketch::new(1e-5, 99.99);
+    let mut cms = CountMinSketch::new(1e-5, 99.99);
 
-    let mut parser = parser::Parser::new();
+    let mut parser = Parser::new();
 
     while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
         uvs.insert(cms_info.uv.clone(), cms_info.c);
@@ -31,7 +34,7 @@ fn main() -> Result<(), parser::ParseError> {
     }
 
     for (uv, c) in uvs.iter() {
-        print!("{} {}", uv, *c as u32);
+        print!("{} {}", uv, c);
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
             if let Some(count) = cms.get(&raw) {

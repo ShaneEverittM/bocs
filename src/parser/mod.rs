@@ -77,7 +77,7 @@ pub struct CMSInfo {
     pub uv: String,
     pub op: String,
     /// Whether or not u:v is connected?
-    pub c: bool,
+    pub c: u8,
 }
 
 pub struct Parser {
@@ -223,9 +223,9 @@ impl Parser {
 
         // Get connected bit
         let c = tokens.next().ok_or("connected")?;
-        let c_bool = match c {
-            "0" => false,
-            "1" => true,
+        let c_num = match c {
+            "0" => 0,
+            "1" => 1,
             _ => return Err(InvalidFormat("C must be 0 or 1".into())),
         };
 
@@ -236,7 +236,7 @@ impl Parser {
         Ok(Some(CMSInfo {
             uv: uv.to_owned(),
             op: op.to_owned(),
-            c: c_bool,
+            c: c_num,
         }))
     }
 
@@ -336,22 +336,22 @@ mod tests {
             CMSInfo {
                 uv: "ENSG00000164164:ENSG00000175376".to_owned(),
                 op: "11:12".to_owned(),
-                c: false,
+                c: 0,
             },
             CMSInfo {
                 uv: "ENSG00000006194:ENSG00000174851".to_owned(),
                 op: "6:6".to_owned(),
-                c: false,
+                c: 0,
             },
             CMSInfo {
                 uv: "ENSG00000205302:ENSG00000175895".to_owned(),
                 op: "11:12".to_owned(),
-                c: false,
+                c: 0,
             },
             CMSInfo {
                 uv: "ENSG00000147041:ENSG00000205302".to_owned(),
                 op: "6:6".to_owned(),
-                c: false,
+                c: 0,
             },
         ];
 
