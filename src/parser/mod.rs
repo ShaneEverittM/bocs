@@ -22,11 +22,11 @@
 //!
 //! [BLANT]: (https://github.com/waynebhayes/BLANT)
 
+use crate::parser::ParseError::InvalidFormat;
 use itertools::Itertools;
 use std::io::BufRead;
 use std::result::Result;
 use thiserror::Error;
-use crate::parser::ParseError::InvalidFormat;
 
 /// Consolidates the various errors that can occur while parsing into one enum so as to unify
 /// into one variant high up this projects "error tree".
@@ -80,154 +80,172 @@ pub struct CMSInfo {
     pub c: bool,
 }
 
-
-/// Given any buffered reader, this function will extract one line of text and attempt to parse
-/// it expecting the following format (explained in more detail in module docs):
-/// `P u:v e o:p q:r x:y`
-/// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
-/// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
-///
-/// # Arguments
-/// * `input` - any type that implements [BufRead] that can output the above format.
-///
-/// # Returns
-/// While there is still a line left in `input`, returns an `Ok(Some(parser::MotifInfo))`. On
-/// error returns a `parser::ParseError` and on EOF returns `Ok(None)`
-///
-/// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
-pub fn parse_motif<R: BufRead>(input: &mut R) -> Result<Option<MotifInfo>, ParseError> {
-    // Line buffer
-    let mut line = String::new();
-
-    // Get an entire line from the input, return None on EOF
-    if let 0 = input.read_line(&mut line)? {
-        return Ok(None);
-    };
-
-    // Split on whitespace, skip P
-    let mut tokens = line.split_whitespace().skip(1);
-
-    // Get node pair
-    let uv = tokens.next().ok_or("node pair")?;
-
-    // Split node pair on ':'
-    let (u_node, v_node) = uv.split(':').collect_tuple().ok_or("node pair")?;
-
-    // Parse into prefix and int
-    let (u_prefix, u) = parse_node(u_node)?;
-    let (v_prefix, v) = parse_node(v_node)?;
-
-    // Skip c, get orbit pair
-    let op = tokens.nth(1).ok_or("orbit pair")?;
-
-    // Split into o and p
-    let (o_str, p_str) = op.split(':').collect_tuple().ok_or("orbit pair 2")?;
-    let (o, p) = (o_str.parse::<u32>()?, p_str.parse::<u32>()?);
-
-    // Concat into hashable representation
-    let raw = format!("{}:{}:{}:{}", u_node, v_node, o_str, p_str);
-
-    // Pack into struct
-    Ok(Some(MotifInfo {
-        raw,
-        u_prefix,
-        u,
-        v_prefix,
-        v,
-        o,
-        p,
-    }))
+pub struct Parser {
+    line: String,
 }
 
-/// Given any buffered reader, this function will extract one line of text and attempt to parse
-/// it expecting the following format (explained in more detail in module docs):
-/// `P u:v e o:p q:r x:y`
-/// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
-/// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
-///
-/// # Arguments
-/// * `input` - any type that implements [BufRead] that can output the above format.
-///
-/// # Returns
-/// While there is still a line left in `input`, returns an `Ok(Some(String))`, where the String
-/// is a condensed, hashable representation. On error returns a `parser::ParseError` and on EOF
-/// returns `Ok(None)`
-///
-/// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
-pub fn parse_raw<R: BufRead>(input: &mut R) -> Result<Option<String>, ParseError> {
-    // Line buffer
-    let mut line = String::new();
-
-    // Get an entire line from the input, return None on EOF
-    if let 0 = input.read_line(&mut line)? {
-        return Ok(None);
-    };
-
-    // Split on whitespace, skip P
-    let mut tokens = line.split_whitespace().skip(1);
-
-    // Get node pair
-    let uv = tokens.next().ok_or("node pair")?;
-
-    // Skip c, get orbit pair
-    let op = tokens.nth(1).ok_or("orbit pair")?;
-
-    // Concat into raw hashable representation
-    Ok(Some(format!("{}:{}", uv, op)))
+impl Default for Parser {
+    fn default() -> Self {
+        Self {
+            line: String::new(),
+        }
+    }
 }
 
+impl Parser {
+    pub fn new() -> Self {
+        Self {
+            line: String::new(),
+        }
+    }
 
-/// Given any buffered reader, this function will extract one line of text and attempt to parse
-/// it expecting the following format (explained in more detail in module docs):
-/// `P u:v e o:p q:r x:y`
-/// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
-/// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
-///
-/// # Arguments
-/// * `input` - any type that implements [BufRead] that can output the above format.
-///
-/// # Returns
-/// While there is still a line left in `input`, returns an `Ok(Some((String, String)))`, where the
-/// String is a condensed, hashable representation. On error returns a `parser::ParseError` and
-/// on EOF returns `Ok(None)`
-///
-/// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
-pub fn parse_cms<R: BufRead>(input: &mut R) -> Result<Option<CMSInfo>, ParseError> {
-    // Line buffer
-    let mut line = String::new();
+    /// Given any buffered reader, this function will extract one line of text and attempt to parse
+    /// it expecting the following format (explained in more detail in module docs):
+    /// `P u:v e o:p q:r x:y`
+    /// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
+    /// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
+    ///
+    /// # Arguments
+    /// * `input` - any type that implements [BufRead] that can output the above format.
+    ///
+    /// # Returns
+    /// While there is still a line left in `input`, returns an `Ok(Some(parser::MotifInfo))`. On
+    /// error returns a `parser::ParseError` and on EOF returns `Ok(None)`
+    ///
+    /// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
+    pub fn parse_motif<R: BufRead>(
+        &mut self,
+        input: &mut R,
+    ) -> Result<Option<MotifInfo>, ParseError> {
+        self.line.clear();
+        // Get an entire line from the input, return None on EOF
+        if let 0 = input.read_line(&mut self.line)? {
+            return Ok(None);
+        };
 
-    // Get an entire line from the input, return None on EOF
-    if let 0 = input.read_line(&mut line)? {
-        return Ok(None);
-    };
+        // Split on whitespace, skip P
+        let mut tokens = self.line.split_whitespace().skip(1);
 
-    // Split on whitespace, skip P
-    let mut tokens = line.split_whitespace().skip(1);
+        // Get node pair
+        let uv = tokens.next().ok_or("node pair")?;
 
-    // Get node pair
-    let uv = tokens.next().ok_or("node pair")?;
+        // Split node pair on ':'
+        let (u_node, v_node) = uv.split(':').collect_tuple().ok_or("node pair")?;
 
-    // Get connected bit
-    let c = tokens.next().ok_or("connected")?;
-    let c_bool = match c {
-        "0" => false,
-        "1" => true,
-        _ => return Err(InvalidFormat("C must be 0 or 1".into()))
-    };
+        // Parse into prefix and int
+        let (u_prefix, u) = Parser::parse_node(u_node)?;
+        let (v_prefix, v) = Parser::parse_node(v_node)?;
 
-    // Get orbit pair
-    let op = tokens.next().ok_or("orbit pair")?;
+        // Skip c, get orbit pair
+        let op = tokens.nth(1).ok_or("orbit pair")?;
 
-    // Concat into raw hashable representation
-    Ok(Some(CMSInfo { uv: uv.to_owned(), op: op.to_owned(), c: c_bool }))
-}
+        // Split into o and p
+        let (o_str, p_str) = op.split(':').collect_tuple().ok_or("orbit pair 2")?;
+        let (o, p) = (o_str.parse::<u32>()?, p_str.parse::<u32>()?);
 
+        // Concat into hashable representation
+        let raw = format!("{}:{}:{}:{}", u_node, v_node, o_str, p_str);
 
-fn parse_node(tok: &str) -> Result<(String, u32), ParseError> {
-    if let Some(idx) = tok.find(&['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'][..]) {
-        Ok((tok[..idx].to_owned(), tok[(idx + 1)..].parse::<u32>()?))
-    } else {
-        Err("no numbers in node".into())
+        // Pack into struct
+        Ok(Some(MotifInfo {
+            raw,
+            u_prefix,
+            u,
+            v_prefix,
+            v,
+            o,
+            p,
+        }))
+    }
+
+    /// Given any buffered reader, this function will extract one line of text and attempt to parse
+    /// it expecting the following format (explained in more detail in module docs):
+    /// `P u:v e o:p q:r x:y`
+    /// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
+    /// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
+    ///
+    /// # Arguments
+    /// * `input` - any type that implements [BufRead] that can output the above format.
+    ///
+    /// # Returns
+    /// While there is still a line left in `input`, returns an `Ok(Some(String))`, where the String
+    /// is a condensed, hashable representation. On error returns a `parser::ParseError` and on EOF
+    /// returns `Ok(None)`
+    ///
+    /// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
+    pub fn parse_raw<R: BufRead>(&mut self, input: &mut R) -> Result<Option<String>, ParseError> {
+        self.line.clear();
+        // Get an entire line from the input, return None on EOF
+        if let 0 = input.read_line(&mut self.line)? {
+            return Ok(None);
+        };
+
+        // Split on whitespace, skip P
+        let mut tokens = self.line.split_whitespace().skip(1);
+
+        // Get node pair
+        let uv = tokens.next().ok_or("node pair")?;
+
+        // Skip c, get orbit pair
+        let op = tokens.nth(1).ok_or("orbit pair")?;
+
+        // Concat into raw hashable representation
+        Ok(Some(format!("{}:{}", uv, op)))
+    }
+
+    /// Given any buffered reader, this function will extract one line of text and attempt to parse
+    /// it expecting the following format (explained in more detail in module docs):
+    /// `P u:v e o:p q:r x:y`
+    /// where: P is a flag meaning prediction mode, u, v, x and y are nodes of the format
+    /// [a-zA-z]*[0-9]+, and o, p, q and r are positive integers.
+    ///
+    /// # Arguments
+    /// * `input` - any type that implements [BufRead] that can output the above format.
+    ///
+    /// # Returns
+    /// While there is still a line left in `input`, returns an `Ok(Some((String, String)))`, where the
+    /// String is a condensed, hashable representation. On error returns a `parser::ParseError` and
+    /// on EOF returns `Ok(None)`
+    ///
+    /// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
+    pub fn parse_cms<R: BufRead>(&mut self, input: &mut R) -> Result<Option<CMSInfo>, ParseError> {
+        self.line.clear();
+        // Get an entire line from the input, return None on EOF
+        if let 0 = input.read_line(&mut self.line)? {
+            return Ok(None);
+        };
+
+        // Split on whitespace, skip P
+        let mut tokens = self.line.split_whitespace().skip(1);
+
+        // Get node pair
+        let uv = tokens.next().ok_or("node pair")?;
+
+        // Get connected bit
+        let c = tokens.next().ok_or("connected")?;
+        let c_bool = match c {
+            "0" => false,
+            "1" => true,
+            _ => return Err(InvalidFormat("C must be 0 or 1".into())),
+        };
+
+        // Get orbit pair
+        let op = tokens.next().ok_or("orbit pair")?;
+
+        // Concat into raw hashable representation
+        Ok(Some(CMSInfo {
+            uv: uv.to_owned(),
+            op: op.to_owned(),
+            c: c_bool,
+        }))
+    }
+
+    fn parse_node(tok: &str) -> Result<(String, u32), ParseError> {
+        if let Some(idx) = tok.find(&['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'][..]) {
+            Ok((tok[..idx].to_owned(), tok[(idx + 1)..].parse::<u32>()?))
+        } else {
+            Err("no numbers in node".into())
+        }
     }
 }
 
@@ -278,11 +296,11 @@ mod tests {
         ];
 
         let mut actual = Vec::new();
-        let mut file_br = BufReader::new(
-            std::fs::File::open("tests/4_line_motif_test.txt")?
-        );
+        let mut file_br = BufReader::new(std::fs::File::open("tests/4_line_motif_test.txt")?);
 
-        while let Some(mi) = parse_motif(&mut file_br)? {
+        let mut parser = Parser::new();
+
+        while let Some(mi) = parser.parse_motif(&mut file_br)? {
             actual.push(mi);
         }
 
@@ -300,11 +318,11 @@ mod tests {
         ];
 
         let mut actual = Vec::new();
-        let mut file_br = BufReader::new(
-            std::fs::File::open("tests/4_line_motif_test.txt")?
-        );
+        let mut file_br = BufReader::new(std::fs::File::open("tests/4_line_motif_test.txt")?);
 
-        while let Some(raw) = parse_raw(&mut file_br)? {
+        let mut parser = Parser::new();
+
+        while let Some(raw) = parser.parse_raw(&mut file_br)? {
             actual.push(raw);
         }
 
@@ -338,11 +356,11 @@ mod tests {
         ];
 
         let mut actual = Vec::new();
-        let mut file_br = BufReader::new(
-            std::fs::File::open("tests/4_line_motif_test.txt")?
-        );
+        let mut file_br = BufReader::new(std::fs::File::open("tests/4_line_motif_test.txt")?);
 
-        while let Some(raw) = parse_cms(&mut file_br)? {
+        let mut parser = Parser::new();
+
+        while let Some(raw) = parser.parse_cms(&mut file_br)? {
             actual.push(raw);
         }
 

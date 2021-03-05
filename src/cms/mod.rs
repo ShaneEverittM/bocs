@@ -35,7 +35,7 @@ impl CountMinSketch {
             hash_value = self.cms_hash(raw, i as i32);
             hashed_freq = hashed_freq.min(self.table[i][(hash_value % self.width as i32) as usize])
         }
-        
+
         if hashed_freq > 0 {
             Some(hashed_freq)
         } else {
@@ -82,8 +82,8 @@ mod tests {
         cms.put(c);
         cms.put(c);
 
-        assert_eq!(cms.get(s), 3);
-        assert_eq!(cms.get(c), 2);
-        assert_eq!(cms.get(k), 0);
+        assert_eq!(cms.get(s).unwrap(), 3);
+        assert_eq!(cms.get(c).unwrap(), 2);
+        assert_eq!(cms.get(k).unwrap(), 0);
     }
 }
