@@ -5,9 +5,7 @@ use clap::App;
 fn main() -> Result<(), parser::ParseError> {
     let matches = App::new("EPP")
         .version("0.1")
-        .author("Shane Murphy")
-        .author("Elliott Allison")
-        .author("Maaz Adeeb")
+        .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .get_matches();
 
