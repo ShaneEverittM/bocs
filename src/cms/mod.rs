@@ -8,7 +8,7 @@ pub mod hash;
 pub struct CountMinSketch {
     depth: usize,
     width: usize,
-    table: Vec<Vec<i32>>,
+    table: Vec<Vec<usize>>,
 }
 
 impl CountMinSketch {
@@ -17,7 +17,7 @@ impl CountMinSketch {
     /// count `confidence` percent of the time.
     pub fn new(error_rate: f64, confidence: f64) -> Self {
         let depth = ((1.0 / (100.0 - confidence)).ln()).ceil() as usize;
-        let width: usize = f64::ceil(std::f64::consts::E / error_rate) as usize;
+        let width = f64::ceil(std::f64::consts::E / error_rate) as usize;
         Self {
             depth,
             width,
@@ -28,12 +28,12 @@ impl CountMinSketch {
     /// Retrieves a value from the CMS. Expects a condensed format of the input to support
     /// hashing. This condensed value is the `raw` field in
     /// [`parser::MotifInfo`](../parser/struct.MotifInfo.html)
-    pub fn get(&self, raw: &str) -> Option<i32> {
-        let mut hashed_freq: i32 = i32::max_value();
-        let mut hash_value: usize;
+    pub fn get(&self, raw: &str) -> Option<usize> {
+        let mut hashed_freq = usize::max_value();
+        let mut hash_value;
         for i in 0..self.depth {
-            hash_value = self.cms_hash(raw, i as i32);
-            hashed_freq = hashed_freq.min(self.table[i][(hash_value % self.width as usize)])
+            hash_value = self.cms_hash(raw, i);
+            hashed_freq = hashed_freq.min(self.table[i][(hash_value % self.width)])
         }
 
         if hashed_freq > 0 {
@@ -47,12 +47,12 @@ impl CountMinSketch {
     pub fn put(&mut self, raw: &str) {
         let mut hash_value: usize;
         for i in 0..self.depth {
-            hash_value = self.cms_hash(raw, i as i32);
-            self.table[i][(hash_value % self.width as usize)] += 1;
+            hash_value = self.cms_hash(raw, i);
+            self.table[i][(hash_value % self.width)] += 1;
         }
     }
 
-    fn cms_hash(&self, raw: &str, idx: i32) -> usize {
+    fn cms_hash(&self, raw: &str, idx: usize) -> usize {
         match idx {
             0 => hash::string_fold_hash(raw),
             1 => hash::pjw_hash(raw),
