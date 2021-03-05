@@ -1,5 +1,5 @@
 use clap::App;
-use epp_rust::{
+use epp::{
     cms::CountMinSketch,
     parser::{ParseError, Parser},
 };

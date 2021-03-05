@@ -1,5 +1,5 @@
 [package]
-name = "epp_rust"
+name = "epp"
 version = "0.1.0"
 authors = ["ShaneEverittM <shane.everitt.murphy@gmail.com>"]
 edition = "2018"
