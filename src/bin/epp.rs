@@ -10,6 +10,7 @@ fn main() -> Result<(), ParseError> {
         .version("0.1")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
+        .arg_from_usage("-e <NUMBER> 'Sets the error_rate to 1^-<NUMBER>'")
         .get_matches();
 
     let k = matches
@@ -17,13 +18,20 @@ fn main() -> Result<(), ParseError> {
         .expect("Must supply k value")
         .parse::<usize>()?;
 
+    let e = matches
+        .value_of("e")
+        .expect("Must supply e value")
+        .parse::<u32>()?;
+
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
 
     let mut uvs = HashMap::new();
     let mut ops = HashSet::new();
 
-    let mut cms = CountMinSketch::new(1e-5, 99.0);
+    let error_rate = 1.0 / u32::pow(10, e) as f64;
+
+    let mut cms = CountMinSketch::new(error_rate, 99.0);
 
     let mut parser = Parser::new();
 
