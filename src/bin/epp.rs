@@ -35,7 +35,10 @@ fn main() -> Result<(), ParseError> {
 
     let mut parser = Parser::new();
 
+    let mut count: u64 = 0;
+
     while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
+        count += 1;
         if !uvs.contains_key(&cms_info.uv) {
             uvs.insert(cms_info.uv.clone(), cms_info.c);
         }
@@ -45,12 +48,16 @@ fn main() -> Result<(), ParseError> {
         cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
     }
 
+    let range = (error_rate * count as f64).floor() as u64;
+
     for (uv, c) in uvs.iter() {
         print!("{} {}", uv, c);
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
-            if let Some(count) = cms.get(&raw) {
-                print!("\t{}:{} {}", k, op, count);
+            // actual >= pred - (error_rate * num_of_entries)
+            if let Some(pred) = cms.get(&raw) {
+                let actual = pred as u64 - range;
+                print!("\t{}:{} {}", k, op, actual);
             }
         }
         println!()
