@@ -1,7 +1,7 @@
 //! A specialized implementation of the
 //! [Count-Min Sketch data structure](https://en.wikipedia.org/wiki/Count%E2%80%93min_sketch).
 
-pub mod hash;
+mod hash;
 
 use hash::Hasher;
 
