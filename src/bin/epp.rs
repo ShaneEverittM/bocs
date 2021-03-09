@@ -51,18 +51,22 @@ fn main() -> Result<(), ParseError> {
     let range = (error_rate * count as f64).floor() as u64;
 
     for (uv, c) in uvs.iter() {
-        print!("{} {}", uv, c);
+        let mut output = format!("{} {}", uv, c);
+        let mut found_any = false;
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
             // actual >= pred - (error_rate * num_of_entries)
             if let Some(pred) = cms.get(&raw) {
                 if range < pred as u64 {
                     let actual = pred as u64 - range;
-                    print!("\t{}:{} {}", k, op, actual);
+                    output += &format!("\t{}:{} {}", k, op, actual);
+                    found_any = true;
                 }
             }
         }
-        println!()
+        if found_any {
+            println!("{}", output);
+        }
     }
 
     Ok(())
