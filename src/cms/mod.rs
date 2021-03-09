@@ -16,8 +16,10 @@ impl CountMinSketch {
     /// assert that any count returned from the CMS will be at most `error_rate` over the actual
     /// count `confidence` percent of the time.
     pub fn new(error_rate: f64, confidence: f64) -> Self {
-        let depth = f64::ceil(f64::ln(1.0 / (100.0 - confidence))) as usize;
+        let depth = f64::ceil(f64::ln(1.0 / (1.0 - confidence / 100.0))) as usize;
         let width = f64::ceil(std::f64::consts::E / error_rate) as usize;
+        dbg!(depth);
+        dbg!(width);
         Self {
             depth,
             width,
@@ -54,11 +56,11 @@ impl CountMinSketch {
 
     fn cms_hash(&self, raw: &str, idx: usize) -> usize {
         match idx {
-            0 => hash::string_fold_hash(raw),
-            1 => hash::pjw_hash(raw),
+            0 => hash::js_hash(raw),
+            1 => hash::bkdr_hash(raw),
             2 => hash::rs_hash(raw),
-            3 => hash::js_hash(raw),
-            4 => hash::bkdr_hash(raw),
+            3 => hash::string_fold_hash(raw),
+            4 => hash::pjw_hash(raw),
             5 => hash::elf_hash(raw),
             6 => hash::sdbm_hash(raw),
             _ => unimplemented!(),
