@@ -23,13 +23,17 @@ fn main() -> Result<(), ParseError> {
     let mut uvs = HashMap::new();
     let mut ops = HashSet::new();
 
-    let mut cms = CountMinSketch::new(1e-5, 99.99);
+    let mut cms = CountMinSketch::new(1e-5, 99.0);
 
     let mut parser = Parser::new();
 
     while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
-        uvs.insert(cms_info.uv.clone(), cms_info.c);
-        ops.insert(cms_info.op.clone());
+        if !uvs.contains_key(&cms_info.uv) {
+            uvs.insert(cms_info.uv.clone(), cms_info.c);
+        }
+        if !ops.contains(&cms_info.op) {
+            ops.insert(cms_info.op.clone());
+        }
         cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
     }
 
@@ -38,7 +42,7 @@ fn main() -> Result<(), ParseError> {
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
             if let Some(count) = cms.get(&raw) {
-                print!("    {}:{} {}", k, op, count);
+                print!("\t{}:{} {}", k, op, count);
             }
         }
         println!()
