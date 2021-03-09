@@ -3,12 +3,14 @@
 
 pub mod hash;
 
+type Count = u16;
+
 /// A specialized implementation of the
 /// [Count-Min Sketch data structure](https://en.wikipedia.org/wiki/Count%E2%80%93min_sketch).
 pub struct CountMinSketch {
     depth: usize,
     width: usize,
-    table: Vec<Vec<usize>>,
+    table: Vec<Vec<Count>>,
 }
 
 impl CountMinSketch {
@@ -30,8 +32,8 @@ impl CountMinSketch {
     /// Retrieves a value from the CMS. Expects a condensed format of the input to support
     /// hashing. This condensed value is the `raw` field in
     /// [`parser::MotifInfo`](../parser/struct.MotifInfo.html)
-    pub fn get(&self, raw: &str) -> Option<usize> {
-        let mut hashed_freq = usize::max_value();
+    pub fn get(&self, raw: &str) -> Option<Count> {
+        let mut hashed_freq = Count::max_value();
         let mut hash_value;
         for i in 0..self.depth {
             hash_value = self.cms_hash(raw, i);
@@ -78,7 +80,7 @@ mod tests {
         let c = "other_value";
         let k = "not_value";
 
-        let mut cms = CountMinSketch::new(1e-5, 99.99);
+        let mut cms = CountMinSketch::new(1e-5, 99.0);
 
         cms.put(s);
         cms.put(s);
