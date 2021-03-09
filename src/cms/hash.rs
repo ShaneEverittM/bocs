@@ -14,10 +14,6 @@ impl Default for Hasher {
 }
 
 impl Hasher {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn with_prime(prime: usize) -> Self {
         Self { prime }
     }
