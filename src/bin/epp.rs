@@ -3,9 +3,38 @@ use epp::{
     cms::CountMinSketch,
     parser::{ParseError, Parser},
 };
-use std::collections::{HashMap, HashSet};
+use log::info;
+use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config};
 
-fn main() -> Result<(), ParseError> {
+use std::collections::{HashMap, HashSet};
+use std::fs::OpenOptions;
+
+fn init_logger() {
+    let debug_file = OpenOptions::new()
+        .append(true)
+        .open("logs/debug.log")
+        .unwrap();
+
+    let info_file = OpenOptions::new()
+        .append(true)
+        .open("logs/info.log")
+        .unwrap();
+
+    CombinedLogger::init(vec![
+        WriteLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            info_file,
+        ),
+        WriteLogger::new(
+            LevelFilter::Debug,
+            Config::default(),
+            debug_file,
+        ),
+    ]).unwrap();
+}
+
+fn init_cli() -> Result<(usize, u32), ParseError> {
     let matches = App::new("EPP")
         .version("0.1")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
@@ -22,6 +51,13 @@ fn main() -> Result<(), ParseError> {
         .value_of("e")
         .expect("Must supply e value")
         .parse::<u32>()?;
+    Ok((k, e))
+}
+
+
+fn main() -> Result<(), ParseError> {
+    init_logger();
+    let (k, e) = init_cli()?;
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
@@ -49,6 +85,8 @@ fn main() -> Result<(), ParseError> {
     }
 
     let range = (error_rate * count as f64).floor() as u64;
+
+    info!("Covered {} lines of input with k={}, e={} and a range of {}", count, k, error_rate, range);
 
     for (uv, c) in uvs.iter() {
         let mut output = format!("{} {}", uv, c);
