@@ -56,8 +56,10 @@ fn main() -> Result<(), ParseError> {
             let raw = format!("{}:{}", uv, op);
             // actual >= pred - (error_rate * num_of_entries)
             if let Some(pred) = cms.get(&raw) {
-                let actual = pred as u64 - range;
-                print!("\t{}:{} {}", k, op, actual);
+                if range < pred as u64 {
+                    let actual = pred as u64 - range;
+                    print!("\t{}:{} {}", k, op, actual);
+                }
             }
         }
         println!()
