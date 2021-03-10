@@ -93,11 +93,9 @@ fn main() -> Result<(), ParseError> {
         let mut found_any = false;
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
-            // actual >= pred - (error_rate * num_of_entries)
             if let Some(pred) = cms.get(&raw) {
                 if range < pred as u64 {
-                    let actual = pred as u64 - range;
-                    output += &format!("\t{}:{} {}", k, op, actual);
+                    output += &format!("\t{}:{} {}", k, op, pred);
                     found_any = true;
                 }
             }
