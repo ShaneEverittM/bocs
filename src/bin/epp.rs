@@ -9,6 +9,8 @@ use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config};
 use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 
+static CONFIDENCE: f64 = 99.0;
+
 fn init_logger() {
     let debug_file = OpenOptions::new()
         .append(true)
@@ -57,7 +59,7 @@ fn init_cli() -> Result<(usize, u32), ParseError> {
 
 fn main() -> Result<(), ParseError> {
     init_logger();
-    let (k, e) = init_cli()?;
+    let (k, exponent) = init_cli()?;
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
@@ -65,9 +67,9 @@ fn main() -> Result<(), ParseError> {
     let mut uvs = HashMap::new();
     let mut ops = HashSet::new();
 
-    let error_rate = 1.0 / u32::pow(10, e) as f64;
+    let e = 1.0 / u32::pow(10, exponent) as f64;
 
-    let mut cms = CountMinSketch::new(error_rate, 99.0);
+    let mut cms = CountMinSketch::new(e, CONFIDENCE);
 
     let mut parser = Parser::new();
 
@@ -84,9 +86,9 @@ fn main() -> Result<(), ParseError> {
         cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
     }
 
-    let range = (error_rate * count as f64).floor() as u64;
+    let range = (e * count as f64).floor() as u64;
 
-    info!("Covered {} lines of input with k={}, e={} and a range of {}", count, k, error_rate, range);
+    info!("Covered {} lines of input with k={}, e={} and a range of {}", count, k, e, range);
 
     for (uv, c) in uvs.iter() {
         let mut output = format!("{} {}", uv, c);
