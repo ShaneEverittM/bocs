@@ -1,25 +1,34 @@
 use clap::App;
+
 use epp::{
     cms::CountMinSketch,
     parser::{ParseError, Parser},
 };
+
 use log::info;
 use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config};
 
 use std::collections::{HashMap, HashSet};
-use std::fs::OpenOptions;
+use std::fs;
+use std::path::Path;
 
 static CONFIDENCE: f64 = 99.0;
 
 fn init_logger() {
-    let debug_file = OpenOptions::new()
+    if !Path::exists(Path::new("./epp_logs")) {
+        fs::create_dir("./epp_logs").unwrap();
+    }
+
+    let debug_file = fs::OpenOptions::new()
         .append(true)
-        .open("logs/debug.log")
+        .create(true)
+        .open("epp_logs/debug.log")
         .unwrap();
 
-    let info_file = OpenOptions::new()
+    let info_file = fs::OpenOptions::new()
         .append(true)
-        .open("logs/info.log")
+        .create(true)
+        .open("epp_logs/info.log")
         .unwrap();
 
     CombinedLogger::init(vec![
