@@ -67,8 +67,8 @@ fn init_cli() -> Result<(usize, u32), ParseError> {
 
 
 fn main() -> Result<(), ParseError> {
-    init_logger();
     let (k, exponent) = init_cli()?;
+    init_logger();
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
