@@ -47,7 +47,7 @@ fn init_logger() {
 
 fn init_cli() -> Result<(usize, u32), ParseError> {
     let matches = App::new("EPP")
-        .version("0.1")
+        .version("0.3")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .arg_from_usage("-e <NUMBER> 'Sets the error_rate to 1^-<NUMBER>'")
