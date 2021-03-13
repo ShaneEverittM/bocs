@@ -51,6 +51,7 @@ fn init_cli() -> Result<(usize, u32), ParseError> {
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .arg_from_usage("-e <NUMBER> 'Sets the error_rate to 1^-<NUMBER>'")
+        .arg_from_usage("-v 'Enables logging, will create logging directory'")
         .get_matches();
 
     let k = matches
@@ -62,13 +63,16 @@ fn init_cli() -> Result<(usize, u32), ParseError> {
         .value_of("e")
         .expect("Must supply e value")
         .parse::<u32>()?;
+
+    if matches.is_present("v") {
+        init_logger()
+    }
     Ok((k, e))
 }
 
 
 fn main() -> Result<(), ParseError> {
     let (k, exponent) = init_cli()?;
-    init_logger();
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
