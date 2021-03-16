@@ -109,10 +109,8 @@ fn main() -> Result<(), ParseError> {
         for op in ops.iter() {
             let raw = format!("{}:{}", uv, op);
             if let Some(pred) = cms.get(&raw) {
-                if range < pred as u64 {
-                    output += &format!("\t{}:{} {}", k, op, pred);
-                    found_any = true;
-                }
+                output += &format!("\t{}:{} {}", k, op, pred);
+                found_any = true;
             }
         }
         if found_any {
