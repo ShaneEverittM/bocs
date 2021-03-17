@@ -1,46 +1,141 @@
-use clap::App;
-
-use epp::{
-    cms::CountMinSketch,
-    parser::{ParseError, Parser},
-};
-
-use log::info;
-use simplelog::{CombinedLogger, Config, LevelFilter, WriteLogger};
-use std::process::Command;
-
-use std::fs;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, LineWriter, Write};
 use std::path::Path;
+use std::process::Command;
+
+use anyhow::anyhow;
+use clap::App;
+use itertools::Itertools;
+use simplelog::{CombinedLogger, Config, LevelFilter, WriteLogger};
+
+use epp::{cms::CountMinSketch, parser::Parser};
 
 static CONFIDENCE: f64 = 99.0;
 
-fn init_logger() {
+fn main() -> Result<(), anyhow::Error> {
+    // Initialize paths
+    let quads_path = &format!(
+        "{}/epp-quads-{}.txt",
+        std::env::temp_dir()
+            .to_str()
+            .ok_or_else(|| anyhow!("Invalid path"))?,
+        std::process::id()
+    );
+    let unique_quads_path = &format!(
+        "{}/epp-unique-quads-{}.txt",
+        std::env::temp_dir()
+            .to_str()
+            .ok_or_else(|| anyhow!("Invalid path"))?,
+        std::process::id()
+    );
+
+    // Read from cli
+    let (k, exponent) = init_cli()?;
+
+    // Get stdin_handle
+    let stdin = std::io::stdin();
+    let mut stdin_handle = stdin.lock();
+
+    // Configure CMS
+    let e = 1.0 / u32::pow(10, exponent) as f64;
+    let mut cms = CountMinSketch::new(e, CONFIDENCE);
+
+    // Create parser
+    let mut parser = Parser::new();
+
+    // Create temp buffer file to hold seen uv:op pairs
+    let mut buffer_file = LineWriter::new(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(quads_path)?,
+    );
+
+    // Parse info from BLANT
+    while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
+        // Store uv:c:op in buffer file
+        buffer_file
+            .write_all(format!("{} {} {}\n", cms_info.uv, cms_info.c, cms_info.op).as_bytes())?;
+
+        // Create uv:op pair and put it in CMS
+        let uvop = format!("{}:{}", cms_info.uv, cms_info.op);
+        cms.put(&uvop);
+    }
+
+    // Use /usr/bin/sort to sort the seen uv:op pairs and eliminate duplicates
+    Command::new("sort")
+        .args(&["-u", "-k", "1", "-o", unique_quads_path, quads_path])
+        .output()?;
+
+    // Buffered reader to read in unique, seen, uv:op pairs to eliminate noise in the CMS
+    let mut seen = BufReader::new(File::open(unique_quads_path)?);
+
+    // Buffers
+    let mut line = String::new();
+    let mut output = String::new();
+    let mut cur_uv = String::new();
+
+    while let Ok(bytes) = seen.read_line(&mut line) {
+        // Skip empty lines
+        if bytes == 0 {
+            break;
+        }
+
+        // Split into fields
+        let (uv, c, op) = line
+            .split_whitespace()
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("Missing fields"))?;
+
+        // If we see a new uv pair, dump output, move on
+        if uv != cur_uv {
+            if !cur_uv.is_empty() {
+                println!("{}", output);
+            }
+            cur_uv = uv.to_owned();
+            output = format!("{} {}", uv, c);
+        }
+
+        // If it in the CMS, add it to output associated with current uv pair
+        if let Some(pred) = cms.get(&format!("{}:{}", uv, op)) {
+            output += &format!("\t{}:{} {}", k, op, pred);
+        }
+
+        // Clear buffer
+        line.clear();
+    }
+
+    // Clean up temp files
+    std::fs::remove_file(unique_quads_path)?;
+    std::fs::remove_file(quads_path)?;
+
+    Ok(())
+}
+
+fn init_logger() -> Result<(), anyhow::Error> {
     if !Path::exists(Path::new("./epp_logs")) {
-        fs::create_dir("./epp_logs").unwrap();
+        fs::create_dir("./epp_logs")?;
     }
 
     let debug_file = fs::OpenOptions::new()
         .append(true)
         .create(true)
-        .open("epp_logs/debug.log")
-        .unwrap();
+        .open("epp_logs/debug.log")?;
 
     let info_file = fs::OpenOptions::new()
         .append(true)
         .create(true)
-        .open("epp_logs/info.log")
-        .unwrap();
+        .open("epp_logs/info.log")?;
 
     CombinedLogger::init(vec![
         WriteLogger::new(LevelFilter::Info, Config::default(), info_file),
         WriteLogger::new(LevelFilter::Debug, Config::default(), debug_file),
-    ])
-    .unwrap();
+    ])?;
+
+    Ok(())
 }
 
-fn init_cli() -> Result<(usize, u32), ParseError> {
+fn init_cli() -> Result<(usize, u32), anyhow::Error> {
     let matches = App::new("EPP")
         .version("0.3")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
@@ -60,98 +155,8 @@ fn init_cli() -> Result<(usize, u32), ParseError> {
         .parse::<u32>()?;
 
     if matches.is_present("v") {
-        init_logger()
+        init_logger()?
     }
+
     Ok((k, e))
-}
-
-fn main() -> Result<(), ParseError> {
-    let quads_path = &format!(
-        "{}/epp-quads-{}.txt",
-        std::env::temp_dir().to_str().unwrap(),
-        std::process::id()
-    );
-
-    let unique_quads_path = &format!(
-        "{}/epp-unique-quads-{}.txt",
-        std::env::temp_dir().to_str().unwrap(),
-        std::process::id()
-    );
-
-    let (k, exponent) = init_cli()?;
-
-    let stdin = std::io::stdin();
-    let mut stdin_handle = stdin.lock();
-
-    let e = 1.0 / u32::pow(10, exponent) as f64;
-
-    let mut cms = CountMinSketch::new(e, CONFIDENCE);
-
-    let mut parser = Parser::new();
-
-    let mut count: u64 = 0;
-
-    let mut buffer_file = LineWriter::new(
-        std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(quads_path)
-            .unwrap(),
-    );
-
-    while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
-        count += 1;
-        let uvop = format!("{}:{}", cms_info.uv, cms_info.op);
-        buffer_file
-            .write_all(format!("{} {} {}\n", cms_info.uv, cms_info.c, cms_info.op).as_bytes())
-            .unwrap();
-        cms.put(&uvop);
-    }
-
-    let range = (e * count as f64).floor() as u64;
-
-    info!(
-        "Covered {} lines of input with k={}, e={} and a range of {}",
-        count, k, e, range
-    );
-
-    Command::new("sort")
-        .args(&["-u", "-k", "1", "-o", unique_quads_path, quads_path])
-        .output()
-        .unwrap();
-
-    let mut seen = BufReader::new(File::open(unique_quads_path).unwrap());
-    let mut line = String::new();
-    let mut output = String::new();
-    while let Ok(bytes) = seen.read_line(&mut line) {
-        if bytes == 0 {
-            break;
-        }
-
-        let mut found_any = false;
-
-        let mut tokens = line.split_whitespace();
-        let uv = tokens.next().unwrap();
-        let c = tokens.next().unwrap();
-        if uv != output {
-            output = format!("{} {}", uv, c);
-        }
-        let op = tokens.next().unwrap();
-
-        let raw = format!("{}:{}", uv, op);
-
-        if let Some(pred) = cms.get(&raw) {
-            output += &format!("\t{}:{} {}", k, op, pred);
-            found_any = true;
-        }
-
-        if found_any {
-            println!("{}", output);
-        }
-    }
-
-    std::fs::remove_file(unique_quads_path).unwrap();
-    std::fs::remove_file(quads_path).unwrap();
-
-    Ok(())
 }
