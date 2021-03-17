@@ -6,10 +6,12 @@ use epp::{
 };
 
 use log::info;
-use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config};
+use simplelog::{CombinedLogger, Config, LevelFilter, WriteLogger};
+use std::process::Command;
 
-use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::fs::File;
+use std::io::{BufRead, BufReader, LineWriter, Write};
 use std::path::Path;
 
 static CONFIDENCE: f64 = 99.0;
@@ -32,17 +34,10 @@ fn init_logger() {
         .unwrap();
 
     CombinedLogger::init(vec![
-        WriteLogger::new(
-            LevelFilter::Info,
-            Config::default(),
-            info_file,
-        ),
-        WriteLogger::new(
-            LevelFilter::Debug,
-            Config::default(),
-            debug_file,
-        ),
-    ]).unwrap();
+        WriteLogger::new(LevelFilter::Info, Config::default(), info_file),
+        WriteLogger::new(LevelFilter::Debug, Config::default(), debug_file),
+    ])
+    .unwrap();
 }
 
 fn init_cli() -> Result<(usize, u32), ParseError> {
@@ -70,15 +65,23 @@ fn init_cli() -> Result<(usize, u32), ParseError> {
     Ok((k, e))
 }
 
-
 fn main() -> Result<(), ParseError> {
+    let quads_path = &format!(
+        "{}/epp-quads-{}.txt",
+        std::env::temp_dir().to_str().unwrap(),
+        std::process::id()
+    );
+
+    let unique_quads_path = &format!(
+        "{}/epp-unique-quads-{}.txt",
+        std::env::temp_dir().to_str().unwrap(),
+        std::process::id()
+    );
+
     let (k, exponent) = init_cli()?;
 
     let stdin = std::io::stdin();
     let mut stdin_handle = stdin.lock();
-
-    let mut uvs = HashMap::new();
-    let mut ops = HashSet::new();
 
     let e = 1.0 / u32::pow(10, exponent) as f64;
 
@@ -88,35 +91,67 @@ fn main() -> Result<(), ParseError> {
 
     let mut count: u64 = 0;
 
+    let mut buffer_file = LineWriter::new(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(quads_path)
+            .unwrap(),
+    );
+
     while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
         count += 1;
-        if !uvs.contains_key(&cms_info.uv) {
-            uvs.insert(cms_info.uv.clone(), cms_info.c);
-        }
-        if !ops.contains(&cms_info.op) {
-            ops.insert(cms_info.op.clone());
-        }
-        cms.put(&format!("{}:{}", cms_info.uv, cms_info.op));
+        let uvop = format!("{}:{}", cms_info.uv, cms_info.op);
+        buffer_file
+            .write_all(format!("{} {} {}\n", cms_info.uv, cms_info.c, cms_info.op).as_bytes())
+            .unwrap();
+        cms.put(&uvop);
     }
 
     let range = (e * count as f64).floor() as u64;
 
-    info!("Covered {} lines of input with k={}, e={} and a range of {}", count, k, e, range);
+    info!(
+        "Covered {} lines of input with k={}, e={} and a range of {}",
+        count, k, e, range
+    );
 
-    for (uv, c) in uvs.iter() {
-        let mut output = format!("{} {}", uv, c);
-        let mut found_any = false;
-        for op in ops.iter() {
-            let raw = format!("{}:{}", uv, op);
-            if let Some(pred) = cms.get(&raw) {
-                output += &format!("\t{}:{} {}", k, op, pred);
-                found_any = true;
-            }
+    Command::new("sort")
+        .args(&["-u", "-k", "1", "-o", unique_quads_path, quads_path])
+        .output()
+        .unwrap();
+
+    let mut seen = BufReader::new(File::open(unique_quads_path).unwrap());
+    let mut line = String::new();
+    let mut output = String::new();
+    while let Ok(bytes) = seen.read_line(&mut line) {
+        if bytes == 0 {
+            break;
         }
+
+        let mut found_any = false;
+
+        let mut tokens = line.split_whitespace();
+        let uv = tokens.next().unwrap();
+        let c = tokens.next().unwrap();
+        if uv != output {
+            output = format!("{} {}", uv, c);
+        }
+        let op = tokens.next().unwrap();
+
+        let raw = format!("{}:{}", uv, op);
+
+        if let Some(pred) = cms.get(&raw) {
+            output += &format!("\t{}:{} {}", k, op, pred);
+            found_any = true;
+        }
+
         if found_any {
             println!("{}", output);
         }
     }
+
+    std::fs::remove_file(unique_quads_path).unwrap();
+    std::fs::remove_file(quads_path).unwrap();
 
     Ok(())
 }
