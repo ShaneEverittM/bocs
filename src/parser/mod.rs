@@ -22,35 +22,10 @@
 //!
 //! [BLANT]: (https://github.com/waynebhayes/BLANT)
 
-use crate::parser::ParseError::InvalidFormat;
+use anyhow::anyhow;
 use itertools::Itertools;
 use std::io::BufRead;
 use std::result::Result;
-use thiserror::Error;
-
-/// Consolidates the various errors that can occur while parsing into one enum so as to unify
-/// into one variant high up this projects "error tree".
-#[derive(Error, Debug)]
-pub enum ParseError {
-    /// Error in an underlying IO syscall.
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
-    /// Error in interpreting text that should be a number as a number.
-    #[error(transparent)]
-    ParseIntErr(#[from] std::num::ParseIntError),
-    // C was not a bool
-    #[error(transparent)]
-    ParseBoolErrors(#[from] std::str::ParseBoolError),
-    /// The formatting of the input file is to be wrong.
-    #[error("Invalid format: `{0}`")]
-    InvalidFormat(String),
-}
-
-impl From<&str> for ParseError {
-    fn from(s: &str) -> Self {
-        Self::InvalidFormat(String::from(s))
-    }
-}
 
 /// A parsed Motif from BLANT.
 #[derive(Debug, Eq, PartialEq)]
@@ -116,7 +91,7 @@ impl Parser {
     pub fn parse_motif<R: BufRead>(
         &mut self,
         input: &mut R,
-    ) -> Result<Option<MotifInfo>, ParseError> {
+    ) -> Result<Option<MotifInfo>, anyhow::Error> {
         self.line.clear();
         // Get an entire line from the input, return None on EOF
         if let 0 = input.read_line(&mut self.line)? {
@@ -127,20 +102,26 @@ impl Parser {
         let mut tokens = self.line.split_whitespace().skip(1);
 
         // Get node pair
-        let uv = tokens.next().ok_or("node pair")?;
+        let uv = tokens.next().ok_or_else(|| anyhow!("node pair"))?;
 
         // Split node pair on ':'
-        let (u_node, v_node) = uv.split(':').collect_tuple().ok_or("node pair")?;
+        let (u_node, v_node) = uv
+            .split(':')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("node pair"))?;
 
         // Parse into prefix and int
         let (u_prefix, u) = Parser::parse_node(u_node)?;
         let (v_prefix, v) = Parser::parse_node(v_node)?;
 
         // Skip c, get orbit pair
-        let op = tokens.nth(1).ok_or("orbit pair")?;
+        let op = tokens.nth(1).ok_or_else(|| anyhow!("orbit pair"))?;
 
         // Split into o and p
-        let (o_str, p_str) = op.split(':').collect_tuple().ok_or("orbit pair 2")?;
+        let (o_str, p_str) = op
+            .split(':')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("orbit pair 2"))?;
         let (o, p) = (o_str.parse::<u32>()?, p_str.parse::<u32>()?);
 
         // Concat into hashable representation
@@ -173,7 +154,10 @@ impl Parser {
     /// returns `Ok(None)`
     ///
     /// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
-    pub fn parse_raw<R: BufRead>(&mut self, input: &mut R) -> Result<Option<String>, ParseError> {
+    pub fn parse_raw<R: BufRead>(
+        &mut self,
+        input: &mut R,
+    ) -> Result<Option<String>, anyhow::Error> {
         self.line.clear();
         // Get an entire line from the input, return None on EOF
         if let 0 = input.read_line(&mut self.line)? {
@@ -184,10 +168,10 @@ impl Parser {
         let mut tokens = self.line.split_whitespace().skip(1);
 
         // Get node pair
-        let uv = tokens.next().ok_or("node pair")?;
+        let uv = tokens.next().ok_or_else(|| anyhow!("node pair"))?;
 
         // Skip c, get orbit pair
-        let op = tokens.nth(1).ok_or("orbit pair")?;
+        let op = tokens.nth(1).ok_or_else(|| anyhow!("orbit pair"))?;
 
         // Concat into raw hashable representation
         Ok(Some(format!("{}:{}", uv, op)))
@@ -208,7 +192,10 @@ impl Parser {
     /// on EOF returns `Ok(None)`
     ///
     /// [BufRead]: (https://doc.rust-lang.org/std/io/trait.BufRead.html)
-    pub fn parse_cms<R: BufRead>(&mut self, input: &mut R) -> Result<Option<CMSInfo>, ParseError> {
+    pub fn parse_cms<R: BufRead>(
+        &mut self,
+        input: &mut R,
+    ) -> Result<Option<CMSInfo>, anyhow::Error> {
         self.line.clear();
         // Get an entire line from the input, return None on EOF
         if let 0 = input.read_line(&mut self.line)? {
@@ -219,18 +206,18 @@ impl Parser {
         let mut tokens = self.line.split_whitespace().skip(1);
 
         // Get node pair
-        let uv = tokens.next().ok_or("node pair")?;
+        let uv = tokens.next().ok_or_else(|| anyhow!("node pair"))?;
 
         // Get connected bit
-        let c = tokens.next().ok_or("connected")?;
+        let c = tokens.next().ok_or_else(|| anyhow!("connected"))?;
         let c_num = match c {
             "0" => 0,
             "1" => 1,
-            _ => return Err(InvalidFormat("C must be 0 or 1".into())),
+            _ => return Err(anyhow!("C must be 0 or 1")),
         };
 
         // Get orbit pair
-        let op = tokens.next().ok_or("orbit pair")?;
+        let op = tokens.next().ok_or_else(|| anyhow!("orbit pair"))?;
 
         // Concat into raw hashable representation
         Ok(Some(CMSInfo {
@@ -240,11 +227,11 @@ impl Parser {
         }))
     }
 
-    fn parse_node(tok: &str) -> Result<(String, u32), ParseError> {
+    fn parse_node(tok: &str) -> Result<(String, u32), anyhow::Error> {
         if let Some(idx) = tok.find(&['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'][..]) {
             Ok((tok[..idx].to_owned(), tok[(idx + 1)..].parse::<u32>()?))
         } else {
-            Err("no numbers in node".into())
+            Err(anyhow!("no numbers in node"))
         }
     }
 }
@@ -255,7 +242,7 @@ mod tests {
     use std::io::BufReader;
 
     #[test]
-    fn parse_motif_test() -> Result<(), ParseError> {
+    fn parse_motif_test() -> Result<(), anyhow::Error> {
         let expected = vec![
             MotifInfo {
                 raw: "ENSG00000164164:ENSG00000175376:11:12".to_owned(),
@@ -309,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_raw_test() -> Result<(), ParseError> {
+    fn parse_raw_test() -> Result<(), anyhow::Error> {
         let expected = vec![
             "ENSG00000164164:ENSG00000175376:11:12".to_owned(),
             "ENSG00000006194:ENSG00000174851:6:6".to_owned(),
@@ -331,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_split_test() -> Result<(), ParseError> {
+    fn parse_split_test() -> Result<(), anyhow::Error> {
         let expected = vec![
             CMSInfo {
                 uv: "ENSG00000164164:ENSG00000175376".to_owned(),
