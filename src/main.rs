@@ -113,7 +113,7 @@ fn main() -> Result<(), anyhow::Error> {
 
 fn init_cli() -> Result<(usize, u32), anyhow::Error> {
     let matches = App::new("EPP")
-        .version("0.3")
+        .version("0.4")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .arg_from_usage("-e <NUMBER> 'Sets the error_rate to 1^-<NUMBER>'")
