@@ -104,6 +104,7 @@ fn main() -> Result<(), anyhow::Error> {
         // Clear buffer
         line.clear();
     }
+    println!("{}", output);
 
     // Clean up temp files
     std::fs::remove_file(unique_quads_path)?;
