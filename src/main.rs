@@ -1,12 +1,10 @@
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{BufRead, BufReader, LineWriter, Write};
-use std::path::Path;
 use std::process::Command;
 
 use anyhow::anyhow;
 use clap::App;
 use itertools::Itertools;
-use simplelog::{CombinedLogger, Config, LevelFilter, WriteLogger};
 
 use epp::{cms::CountMinSketch, parser::Parser};
 
@@ -113,36 +111,12 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn init_logger() -> Result<(), anyhow::Error> {
-    if !Path::exists(Path::new("./epp_logs")) {
-        fs::create_dir("./epp_logs")?;
-    }
-
-    let debug_file = fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("epp_logs/debug.log")?;
-
-    let info_file = fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("epp_logs/info.log")?;
-
-    CombinedLogger::init(vec![
-        WriteLogger::new(LevelFilter::Info, Config::default(), info_file),
-        WriteLogger::new(LevelFilter::Debug, Config::default(), debug_file),
-    ])?;
-
-    Ok(())
-}
-
 fn init_cli() -> Result<(usize, u32), anyhow::Error> {
     let matches = App::new("EPP")
         .version("0.3")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .arg_from_usage("-e <NUMBER> 'Sets the error_rate to 1^-<NUMBER>'")
-        .arg_from_usage("-v 'Enables logging, will create logging directory'")
         .get_matches();
 
     let k = matches
@@ -154,10 +128,6 @@ fn init_cli() -> Result<(usize, u32), anyhow::Error> {
         .value_of("e")
         .expect("Must supply e value")
         .parse::<u32>()?;
-
-    if matches.is_present("v") {
-        init_logger()?
-    }
 
     Ok((k, e))
 }
