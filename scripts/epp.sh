@@ -6,16 +6,17 @@
 k=
 n=
 e=8
+
 # Assumed values
 BLANT="/home/wayne/pub/cs295p/blant-mp.sh"
 INPUT="/extra/wayne1/preserve/cs295p/EdgePrediction/HI-union.el"
 TIME="/usr/bin/time"
 
 usage() {
-  echo "Usage: epp.sh -k <k> -n <n> [-h]"
+  echo "Usage: epp.sh -k <k> -n <n> [-e <e>] [-h]"
 }
 
-while getopts ":h?k:n:e?" opt; do
+while getopts "hk:n:e:" opt; do
   case ${opt} in
   h | \?)
     echo "A wrapper around the epp executable meant to facilitate running "
@@ -43,14 +44,8 @@ while getopts ":h?k:n:e?" opt; do
   esac
 done
 
-# shift parsed args
-shift $((OPTIND - 1))
-
-# if there is a "--" shift past it so
-# that any args after it are indexed correctly
-[ "${1:-}" = "--" ] && shift
-
-if [ -v "$k" ] | [ -v "$n" ] | [ -v "$e" ]; then
+# Require k and n, but not e
+if [[ -z "$k" ]] || [[ -z "$n" ]]; then
   usage
   exit 1
 fi
