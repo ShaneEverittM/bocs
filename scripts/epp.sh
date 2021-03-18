@@ -59,16 +59,5 @@ else
   mkdir "$OUT"
 fi
 
-echo "Outputting to $OUT"
-
-echo "Running..."
-
-lines=$(wc -l $INPUT | cut -f1 -d' ')
-range=$(bc -l <<<"1.0 /(10^$e) * $lines")
-
-echo "Covered $lines of input with k=$k, e=$e and a range of $range" >"$OUT"/epp_stats.txt
-
 $TIME -v -o "$OUT"/total_time.txt sh -c "$TIME -v -o $OUT/blant_time.txt $BLANT -k$k -n$n $INPUT \
-	| $TIME -v -o $OUT/epp_time.txt epp -k$k -e$e > $OUT/epp_output.txt"
-
-echo "Done!"
+	| $TIME -v -o $OUT/epp_time.txt ./epp -k$k -e$e -o$OUT"

@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, LineWriter, Write};
 use std::process::Command;
 
@@ -28,7 +28,7 @@ fn main() -> Result<(), anyhow::Error> {
     );
 
     // Read from cli
-    let (k, exponent) = init_cli()?;
+    let (k, exponent, out) = init_cli()?;
 
     // Get stdin_handle
     let stdin = std::io::stdin();
@@ -49,8 +49,11 @@ fn main() -> Result<(), anyhow::Error> {
             .open(quads_path)?,
     );
 
+    let mut count = 0;
+
     // Parse info from BLANT
     while let Some(cms_info) = parser.parse_cms(&mut stdin_handle)? {
+        count += 1;
         // Store uv:c:op in buffer file
         buffer_file
             .write_all(format!("{} {} {}\n", cms_info.uv, cms_info.c, cms_info.op).as_bytes())?;
@@ -59,6 +62,19 @@ fn main() -> Result<(), anyhow::Error> {
         let uvop = format!("{}:{}", cms_info.uv, cms_info.op);
         cms.put(&uvop);
     }
+
+    let range = (e * count as f64).floor() as u64;
+
+    let mut log_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&format!("{}/epp_stats.txt", out))?;
+
+    writeln!(
+        log_file,
+        "Covered {} lines of input with k={}, e={} and a range of {}",
+        count, k, e, range
+    )?;
 
     // Use /usr/bin/sort to sort the seen uv:op pairs and eliminate duplicates
     Command::new("sort")
@@ -111,12 +127,13 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn init_cli() -> Result<(usize, u32), anyhow::Error> {
+fn init_cli() -> Result<(usize, u32, String), anyhow::Error> {
     let matches = App::new("EPP")
         .version("0.4")
         .author("Shane Murphy, Elliott Allison, Maaz Adeeb")
         .arg_from_usage("-k <NUMBER> 'Sets the k-value that was used in BLANT'")
         .arg_from_usage("-e <NUMBER> 'Sets the error_rate to 1^-<NUMBER>'")
+        .args_from_usage("-o <DIR> 'Sets the output dir")
         .get_matches();
 
     let k = matches
@@ -129,5 +146,10 @@ fn init_cli() -> Result<(usize, u32), anyhow::Error> {
         .expect("Must supply e value")
         .parse::<u32>()?;
 
-    Ok((k, e))
+    let out = matches
+        .value_of("o")
+        .expect("Must supply o value")
+        .parse::<String>()?;
+
+    Ok((k, e, out))
 }
